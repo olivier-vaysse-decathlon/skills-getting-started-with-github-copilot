@@ -27,6 +27,19 @@ A super simple FastAPI application that allows students to view and sign up for 
    - API documentation: http://localhost:8000/docs
    - Alternative documentation: http://localhost:8000/redoc
 
+## Testing
+
+From the repository root, install the dependencies and run the backend tests:
+
+```bash
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -v
+```
+
+The tests in `tests/test_app.py` use FastAPI's `TestClient` to make in-process
+requests, so Uvicorn does not need to be running. Each test uses isolated activity
+data and restores the original data afterward.
+
 ## API Endpoints
 
 | Method | Endpoint                                                          | Description                                                         |
