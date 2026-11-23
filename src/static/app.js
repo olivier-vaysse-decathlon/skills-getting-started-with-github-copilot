@@ -5,28 +5,99 @@ document.addEventListener("DOMContentLoaded", () => {
   const messageDiv = document.getElementById("message");
 
   // Function to fetch activities from API
-  async function fetchActivities() {
+  async function fetchActivities(focusAfterRefresh = null) {
     try {
       const response = await fetch("/activities");
+      if (!response.ok) {
+        throw new Error(`Failed to load activities: ${response.status}`);
+      }
       const activities = await response.json();
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      const selectedActivity = activitySelect.value;
+      activitySelect.length = 1;
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
+        activityCard.dataset.activityName = name;
 
         const spotsLeft = details.max_participants - details.participants.length;
 
         activityCard.innerHTML = `
-          <h4>${name}</h4>
+          <h4 tabindex="-1">${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
         `;
 
+        const participantsSection = document.createElement("div");
+        participantsSection.className = "participants";
+        const participantsHeading = document.createElement("h5");
+        participantsHeading.textContent = `Participants (${details.participants.length})`;
+        participantsSection.appendChild(participantsHeading);
+
+        if (details.participants.length === 0) {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "participants-empty";
+          emptyMessage.textContent = "No participants yet.";
+          participantsSection.appendChild(emptyMessage);
+        } else {
+          const participantsList = document.createElement("ul");
+          const errorMessage = document.createElement("p");
+          errorMessage.className = "participant-error";
+          errorMessage.setAttribute("role", "alert");
+          errorMessage.hidden = true;
+
+          details.participants.forEach((participant, participantIndex) => {
+            const item = document.createElement("li");
+            const participantName = document.createElement("span");
+            participantName.textContent = participant;
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "remove-participant";
+            removeButton.setAttribute("aria-label", `Unregister ${participant} from ${name}`);
+            removeButton.title = "Unregister participant";
+            removeButton.innerHTML = `
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 10v6M14 10v6" />
+              </svg>
+            `;
+            removeButton.addEventListener("click", async () => {
+              removeButton.disabled = true;
+              errorMessage.hidden = true;
+              try {
+                const response = await fetch(
+                  `/activities/${encodeURIComponent(name)}/signup?email=${encodeURIComponent(participant)}`,
+                  { method: "DELETE" }
+                );
+                if (!response.ok) {
+                  const result = await response.json();
+                  errorMessage.textContent = result.detail || "Failed to unregister participant.";
+                  errorMessage.hidden = false;
+                  return;
+                }
+                await fetchActivities({ activityName: name, participantIndex });
+              } catch (error) {
+                errorMessage.textContent = "Failed to unregister participant. Please try again.";
+                errorMessage.hidden = false;
+                console.error("Error unregistering participant:", error);
+              } finally {
+                removeButton.disabled = false;
+              }
+            });
+            item.appendChild(participantName);
+            item.appendChild(removeButton);
+            participantsList.appendChild(item);
+          });
+          participantsSection.appendChild(participantsList);
+          participantsSection.appendChild(errorMessage);
+        }
+
+        activityCard.appendChild(participantsSection);
         activitiesList.appendChild(activityCard);
 
         // Add option to select dropdown
@@ -35,6 +106,14 @@ document.addEventListener("DOMContentLoaded", () => {
         option.textContent = name;
         activitySelect.appendChild(option);
       });
+      activitySelect.value = selectedActivity;
+      if (focusAfterRefresh) {
+        window.restoreUnregisterFocus(
+          activitiesList,
+          focusAfterRefresh.activityName,
+          focusAfterRefresh.participantIndex
+        );
+      }
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
@@ -62,6 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
