@@ -33,12 +33,12 @@ From the repository root, install the dependencies and run the backend tests:
 
 ```bash
 python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
+python -m pytest
 ```
 
 The tests in `tests/test_app.py` use FastAPI's `TestClient` to make in-process
 requests, so Uvicorn does not need to be running. Each test uses isolated activity
-data and restores the original data afterward.
+data.
 
 ## API Endpoints
 
