@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const messageDiv = document.getElementById("message");
 
   // Function to fetch activities from API
-  async function fetchActivities() {
+  async function fetchActivities(focusAfterRefresh = null) {
     try {
       const response = await fetch("/activities");
       if (!response.ok) {
@@ -22,11 +22,12 @@ document.addEventListener("DOMContentLoaded", () => {
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
+        activityCard.dataset.activityName = name;
 
         const spotsLeft = details.max_participants - details.participants.length;
 
         activityCard.innerHTML = `
-          <h4>${name}</h4>
+          <h4 tabindex="-1">${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
@@ -50,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
           errorMessage.setAttribute("role", "alert");
           errorMessage.hidden = true;
 
-          details.participants.forEach((participant) => {
+          details.participants.forEach((participant, participantIndex) => {
             const item = document.createElement("li");
             const participantName = document.createElement("span");
             participantName.textContent = participant;
@@ -79,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   errorMessage.hidden = false;
                   return;
                 }
-                await fetchActivities();
+                await fetchActivities({ activityName: name, participantIndex });
               } catch (error) {
                 errorMessage.textContent = "Failed to unregister participant. Please try again.";
                 errorMessage.hidden = false;
@@ -106,6 +107,13 @@ document.addEventListener("DOMContentLoaded", () => {
         activitySelect.appendChild(option);
       });
       activitySelect.value = selectedActivity;
+      if (focusAfterRefresh) {
+        window.restoreUnregisterFocus(
+          activitiesList,
+          focusAfterRefresh.activityName,
+          focusAfterRefresh.participantIndex
+        );
+      }
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
